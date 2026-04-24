@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pentest Básico com Docker — UMC</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #070a0f;
+    --surf:   #0d1219;
+    --card:   #111820;
+    --b1:     #1a2535;
+    --b2:     #243040;
+    --text:   #cdd9e5;
+    --muted:  #637083;
+    --dim:    #3d4f62;
+    --green:  #39d353;
+    --cyan:   #58d6e8;
+    --red:    #ff4d6a;
+    --orange: #ff8c42;
+    --yellow: #ffd166;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;padding-bottom:80px;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px)}
+
+  /* ── HERO ── */
+  .hero{position:relative;overflow:hidden;padding:56px 40px 48px;border-bottom:1px solid var(--b1);
+    background:radial-gradient(ellipse 90% 70% at 60% 0%,rgba(57,211,83,.08),transparent 60%),
+               radial-gradient(ellipse 50% 40% at 5% 100%,rgba(255,77,106,.05),transparent 55%),var(--bg)}
+  .hgrid{position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(57,211,83,.04) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(57,211,83,.04) 1px,transparent 1px);
+    background-size:44px 44px}
+  .hscan{position:absolute;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,rgba(57,211,83,.45),transparent);
+    animation:scan 5s linear infinite;pointer-events:none}
+  @keyframes scan{0%{top:-2px}100%{top:100%}}
+  .hi{position:relative;max-width:920px;margin:0 auto}
+  .badge{display:inline-flex;align-items:center;gap:7px;
+    background:rgba(57,211,83,.08);border:1px solid rgba(57,211,83,.22);
+    color:var(--green);font-family:'Share Tech Mono',monospace;font-size:.68rem;
+    padding:4px 13px;border-radius:3px;letter-spacing:.12em;margin-bottom:18px;text-transform:uppercase}
+  .blink{animation:bl .8s step-end infinite}
+  @keyframes bl{0%,100%{opacity:1}50%{opacity:0}}
+  .hero h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.6rem,4.5vw,3rem);
+    font-weight:900;line-height:1.1;letter-spacing:.03em;margin-bottom:14px}
+  .hero h1 .g{color:var(--green)} .hero h1 .r{color:var(--red)}
+  .hero p{color:var(--muted);font-size:.97rem;max-width:560px;line-height:1.65}
+  .hstats{display:flex;gap:13px;flex-wrap:wrap;margin-top:26px}
+  .hst{background:var(--surf);border:1px solid var(--b1);padding:9px 16px;border-radius:4px;
+    display:flex;align-items:center;gap:9px;font-size:.8rem}
+  .hst strong{color:var(--text);font-weight:600} .hst span{color:var(--muted)}
+
+  /* ── BIG COMMAND BOX ── */
+  .bigcmd-wrap{max-width:920px;margin:40px auto 0;padding:0 24px}
+  .bigcmd{background:rgba(57,211,83,.06);border:2px solid rgba(57,211,83,.3);
+    border-radius:10px;padding:28px 30px;text-align:center}
+  .bigcmd h2{font-family:'Orbitron',monospace;font-size:.8rem;letter-spacing:.18em;
+    color:var(--green);margin-bottom:18px;text-transform:uppercase}
+  .cmd-pill{background:#020609;border:1px solid var(--b2);border-radius:6px;
+    padding:14px 20px;font-family:'Share Tech Mono',monospace;font-size:.9rem;
+    color:#cdd9e5;text-align:left;margin-bottom:10px;position:relative;line-height:1.6}
+  .cmd-pill .pr{color:var(--green);user-select:none}
+  .cmd-pill .kw{color:var(--cyan)} .cmd-pill .sub{color:var(--green)}
+  .cmd-pill .fl{color:var(--yellow)} .cmd-pill .val{color:#89b4fa}
+  .step-label{display:inline-block;background:rgba(57,211,83,.1);border:1px solid rgba(57,211,83,.2);
+    color:var(--green);font-family:'Share Tech Mono',monospace;font-size:.65rem;
+    padding:2px 9px;border-radius:3px;margin-bottom:8px;letter-spacing:.08em}
+  .bigcmd .note{font-size:.78rem;color:var(--muted);margin-top:14px;line-height:1.6}
+  .bigcmd .note strong{color:var(--cyan)}
+
+  /* ── LAYOUT ── */
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px}
+  .sec{font-family:'Orbitron',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--green);margin:44px 0 18px;
+    display:flex;align-items:center;gap:12px}
+  .sec::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--b2),transparent)}
+
+  /* ── CARDS ── */
+  .blk{border:1px solid var(--b1);border-radius:8px;overflow:hidden;background:var(--card);
+    margin-bottom:28px;transition:border-color .2s}
+  .blk:hover{border-color:rgba(57,211,83,.25)}
+  .blk-hdr{padding:18px 24px 14px;border-bottom:1px solid var(--b1);background:var(--surf);
+    display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .num{font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:700;color:var(--green);
+    background:rgba(57,211,83,.08);border:1px solid rgba(57,211,83,.22);
+    padding:5px 11px;border-radius:3px;letter-spacing:.1em;flex-shrink:0;margin-top:2px}
+  .num.c{color:var(--cyan);background:rgba(88,214,232,.08);border-color:rgba(88,214,232,.22)}
+  .num.r{color:var(--red);background:rgba(255,77,106,.08);border-color:rgba(255,77,106,.22)}
+  .blk-info{flex:1;min-width:180px}
+  .blk-info h2{font-size:1.05rem;font-weight:700;margin-bottom:5px}
+  .blk-info p{color:var(--muted);font-size:.85rem;line-height:1.5}
+  .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .tag{font-family:'Share Tech Mono',monospace;font-size:.64rem;padding:2px 8px;border-radius:3px;letter-spacing:.03em}
+  .tg{background:rgba(57,211,83,.08);border:1px solid rgba(57,211,83,.18);color:var(--green)}
+  .tc{background:rgba(88,214,232,.08);border:1px solid rgba(88,214,232,.18);color:var(--cyan)}
+  .tr{background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.18);color:var(--red)}
+  .to{background:rgba(255,140,66,.08);border:1px solid rgba(255,140,66,.18);color:var(--orange)}
+  .ty{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.18);color:var(--yellow)}
+  .tm{font-family:'Share Tech Mono',monospace;font-size:.7rem;padding:5px 13px;border-radius:20px;
+    white-space:nowrap;align-self:flex-start;
+    background:rgba(57,211,83,.08);border:1px solid rgba(57,211,83,.2);color:var(--green)}
+  .blk-body{padding:22px 24px}
+
+  /* ── OBJECTIVE ── */
+  .obj{background:rgba(88,214,232,.05);border:1px solid rgba(88,214,232,.14);
+    border-left:3px solid var(--cyan);border-radius:6px;padding:12px 16px;
+    margin-bottom:20px;font-size:.86rem;line-height:1.6;color:#b8d4db}
+  .obj strong{color:var(--cyan);font-family:'Share Tech Mono',monospace;
+    font-size:.68rem;letter-spacing:.1em;display:block;margin-bottom:3px}
+
+  /* ── STEPS ── */
+  .step{margin-bottom:24px}
+  .shdr{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .sn{font-family:'Share Tech Mono',monospace;font-size:.67rem;color:var(--green);
+    background:rgba(57,211,83,.08);border:1px solid rgba(57,211,83,.18);
+    padding:2px 8px;border-radius:3px;flex-shrink:0}
+  .st2{font-weight:600;font-size:.92rem}
+
+  /* ── TERMINAL ── */
+  .term{background:#020609;border:1px solid var(--b2);border-radius:6px;
+    overflow:hidden;font-family:'Share Tech Mono',monospace;font-size:.79rem;margin-bottom:7px}
+  .tbar{background:#0d1219;border-bottom:1px solid var(--b1);padding:6px 13px;
+    display:flex;align-items:center;gap:7px}
+  .dots{display:flex;gap:5px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .tbar span{color:var(--dim);font-size:.65rem;flex:1;text-align:center;letter-spacing:.07em}
+  .tbody{padding:14px 17px;display:flex;flex-direction:column;gap:11px}
+  .cb{display:flex;flex-direction:column;gap:3px}
+  .cl{display:flex;align-items:flex-start;gap:7px}
+  .pr2{color:var(--green);user-select:none;flex-shrink:0;padding-top:1px}
+  .cm{color:#cdd9e5;line-height:1.5;word-break:break-all}
+  .cm .kw{color:var(--cyan)} .cm .sub{color:var(--green)} .cm .fl{color:var(--yellow)}
+  .cm .val{color:#89b4fa}    .cm .ip{color:var(--orange)}
+  .desc{color:var(--muted);font-size:.77rem;line-height:1.55;padding:7px 11px;
+    background:rgba(255,255,255,.02);border-radius:5px;border-left:2px solid var(--b2);margin-top:2px}
+  .desc .hi{color:var(--text);font-weight:600}
+  .desc .g{color:var(--green);font-weight:600}
+  .desc .c{color:var(--cyan);font-weight:600}
+  .desc .o{color:var(--orange);font-weight:600}
+  .out{color:var(--dim);font-size:.75rem;line-height:1.5;padding-left:3px}
+  .out.g{color:#2a8a3a} .out.r{color:#8a2030} .out.y{color:#8a6e20} .out.c{color:#2e7a87}
+
+  /* ── TIP / WARN ── */
+  .tip{background:rgba(255,209,102,.05);border:1px solid rgba(255,209,102,.17);
+    border-left:3px solid var(--yellow);border-radius:6px;padding:10px 14px;
+    margin-top:11px;font-size:.8rem;color:#cfc090;line-height:1.55}
+  .tip strong{color:var(--yellow);font-family:'Share Tech Mono',monospace;
+    font-size:.68rem;letter-spacing:.08em;display:block;margin-bottom:2px}
+  .warn{background:rgba(255,77,106,.05);border:1px solid rgba(255,77,106,.18);
+    border-left:3px solid var(--red);border-radius:6px;padding:10px 14px;
+    margin-top:11px;font-size:.8rem;color:#d0a0a8;line-height:1.55}
+  .warn strong{color:var(--red);font-family:'Share Tech Mono',monospace;
+    font-size:.68rem;letter-spacing:.08em;display:block;margin-bottom:2px}
+  .ok{background:rgba(57,211,83,.05);border:1px solid rgba(57,211,83,.18);
+    border-left:3px solid var(--green);border-radius:6px;padding:10px 14px;
+    margin-top:11px;font-size:.8rem;color:#a0d0a8;line-height:1.55}
+  .ok strong{color:var(--green);font-family:'Share Tech Mono',monospace;
+    font-size:.68rem;letter-spacing:.08em;display:block;margin-bottom:2px}
+
+  hr.dv{border:none;border-top:1px solid var(--b1);margin:20px 0}
+
+  /* ── WHAT TABLE ── */
+  .wtable{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:10px}
+  .wtable th{background:var(--surf);color:var(--cyan);font-family:'Share Tech Mono',monospace;
+    font-size:.67rem;letter-spacing:.09em;text-align:left;padding:9px 12px;border:1px solid var(--b2)}
+  .wtable td{padding:8px 12px;border:1px solid var(--b1);color:var(--muted);vertical-align:top;line-height:1.4}
+  .wtable tr:hover td{background:rgba(57,211,83,.03)}
+  .wtable td:first-child{font-family:'Share Tech Mono',monospace;color:var(--orange);font-weight:600}
+  .wtable td:nth-child(2){color:var(--green)}
+
+  /* ── REPORT ── */
+  .report{border:1px solid var(--b2);border-radius:8px;overflow:hidden;margin-top:14px}
+  .rhdr{background:linear-gradient(135deg,#0d1a10,#111820);border-bottom:1px solid var(--b2);
+    padding:18px 22px;display:flex;align-items:center;gap:14px}
+  .rhdr .shield{font-size:2rem;filter:drop-shadow(0 0 8px rgba(57,211,83,.35))}
+  .rhdr h3{font-family:'Orbitron',sans-serif;font-size:.8rem;font-weight:700;
+    letter-spacing:.1em;color:var(--green);margin-bottom:2px}
+  .rhdr p{color:var(--muted);font-size:.76rem}
+  .rbody{padding:20px 22px}
+  .rsec{margin-bottom:20px}
+  .rsec h4{font-family:'Share Tech Mono',monospace;font-size:.7rem;letter-spacing:.12em;
+    color:var(--cyan);margin-bottom:10px;text-transform:uppercase;
+    display:flex;align-items:center;gap:8px}
+  .rsec h4::after{content:'';flex:1;height:1px;background:var(--b1)}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:.7rem;color:var(--dim);font-family:'Share Tech Mono',monospace;
+    letter-spacing:.06em;margin-bottom:4px;text-transform:uppercase}
+  .fbox{background:var(--surf);border:1px solid var(--b2);border-radius:4px;
+    padding:10px 13px;font-size:.82rem;color:var(--muted);line-height:1.5;min-height:36px}
+  .fbox.tall{min-height:80px}
+  .fbox.ph{color:var(--b2);font-style:italic;font-size:.78rem}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:580px){.grid2{grid-template-columns:1fr}}
+  .sev-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .sev{padding:5px 13px;border-radius:3px;font-size:.72rem;font-family:'Share Tech Mono',monospace;letter-spacing:.06em}
+  .sev.c{background:rgba(255,77,106,.15);border:1px solid rgba(255,77,106,.3);color:var(--red)}
+  .sev.h{background:rgba(255,140,66,.15);border:1px solid rgba(255,140,66,.3);color:var(--orange)}
+  .sev.m{background:rgba(255,209,102,.15);border:1px solid rgba(255,209,102,.3);color:var(--yellow)}
+  .sev.l{background:rgba(57,211,83,.15);border:1px solid rgba(57,211,83,.3);color:var(--green)}
+  .sev.i{background:rgba(88,214,232,.15);border:1px solid rgba(88,214,232,.3);color:var(--cyan)}
+
+  /* ── CHECKLIST ── */
+  .cll{list-style:none;display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .cll li{display:flex;align-items:flex-start;gap:9px;font-size:.85rem;color:var(--muted);line-height:1.5}
+  .cll li::before{content:'□';color:var(--b2);font-size:1rem;flex-shrink:0;
+    margin-top:-1px;font-family:'Share Tech Mono',monospace}
+  .cll li span{color:var(--text)}
+
+  /* ── FOOTER ── */
+  .footer{margin-top:60px;text-align:center;padding-top:26px;border-top:1px solid var(--b1);
+    font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--dim)}
+  .footer span{color:var(--green)}
+
+  @media(max-width:600px){
+    .hero{padding:36px 18px 30px}
+    .blk-body,.blk-hdr{padding:16px}
+    .bigcmd{padding:20px 18px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="hgrid"></div><div class="hscan"></div>
+  <div class="hi">
+    <div class="badge"><span class="blink">▮</span> UMC · PENTEST BÁSICO · DOCKER</div>
+    <h1>Pentest <span class="g">Básico</span><br>com <span class="r">Kali</span> no Docker</h1>
+    <p>Suba o laboratório completo com <strong>2 comandos</strong> e explore ferramentas reais de segurança num ambiente 100% seguro e isolado.</p>
+    <div class="hstats">
+      <div class="hst"><span>🐳</span><strong>2 comandos</strong><span>para subir o lab</span></div>
+      <div class="hst"><span>🔍</span><strong>nmap · nikto · curl</strong><span>ferramentas do lab</span></div>
+      <div class="hst"><span>🌐</span><strong>localhost:8080</strong><span>alvo no browser</span></div>
+      <div class="hst"><span>⏱</span><strong>~60 min</strong><span>duração total</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 2 COMANDOS ═══ -->
+<div class="bigcmd-wrap">
+  <div class="bigcmd">
+    <h2>🚀 Subindo o laboratório — só 2 comandos</h2>
+
+    <div class="step-label">COMANDO 1 — Alvo web (DVWA)</div>
+    <div class="cmd-pill">
+      <span class="pr">PS&gt; </span><span class="kw">docker</span> <span class="sub">run</span> <span class="fl">-d</span> <span class="fl">--name</span> <span class="val">alvo-web</span> <span class="fl">-p</span> <span class="val">8080:80</span> <span class="val">vulnerables/web-dvwa</span>
+    </div>
+
+    <div class="step-label">COMANDO 2 — Kali Linux (atacante)</div>
+    <div class="cmd-pill">
+      <span class="pr">PS&gt; </span><span class="kw">docker</span> <span class="sub">run</span> <span class="fl">-it</span> <span class="fl">--name</span> <span class="val">kali</span> <span class="fl">--network</span> <span class="val">host</span> <span class="val">kalilinux/kali-rolling</span> <span class="sub">bash</span>
+    </div>
+
+    <p class="note">
+      Após os 2 comandos: abra o browser em <strong style="color:var(--cyan)">http://localhost:8080</strong> — o site alvo já está no ar.<br>
+      O terminal do Kali abre automaticamente. Pronto para começar!
+    </p>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ═══ PRÉ-REQUISITO ═══ -->
+<div class="sec">PRÉ-REQUISITO</div>
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num c">PRE</div>
+    <div class="blk-info">
+      <h2>Confirmar que o Docker está funcionando</h2>
+      <p>Antes de qualquer coisa, execute este comando para garantir que o Docker Desktop está ativo.</p>
+      <div class="tags"><span class="tag tg">docker version</span></div>
+    </div>
+  </div>
+  <div class="blk-body">
+    <div class="step">
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>POWERSHELL</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">PS&gt;</span><span class="cm"><span class="kw">docker</span> <span class="sub">version</span></span></div>
+            <div class="desc">Se aparecer <span class="g">Client</span> e <span class="g">Server</span> com versões, está tudo certo. Se der erro, abra o <span class="hi">Docker Desktop</span> e aguarde o ícone da baleia ficar verde.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="warn"><strong>⚠️ ATENÇÃO</strong>Esta atividade usa apenas containers locais e isolados. Nenhum comando deve ser executado fora deste ambiente. Usar as ferramentas em redes externas é crime pela Lei 12.737/2012.</div>
+  </div>
+</div>
+
+
+<!-- ═══ FASE 1 — NMAP ═══ -->
+<div class="sec">FASE 1 — RECONHECIMENTO COM NMAP</div>
+
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num">01</div>
+    <div class="blk-info">
+      <h2>Descobrir portas e serviços do alvo</h2>
+      <p>O nmap é o scanner de rede mais usado no mundo. Vamos usá-lo para mapear o que está rodando no alvo.</p>
+      <div class="tags"><span class="tag tg">nmap</span><span class="tag tc">port scan</span><span class="tag to">service detection</span></div>
+    </div>
+    <div class="tm">⏱ 15 min</div>
+  </div>
+  <div class="blk-body">
+    <div class="obj">
+      <strong>🎯 O QUE VOCÊ VAI DESCOBRIR</strong>
+      Quais portas estão abertas no alvo, quais serviços rodam em cada porta e qual versão do software está sendo usada.
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">1.1</div><div class="st2">Instalar o nmap no Kali</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="sub">apt update</span> <span class="fl">-qq</span> <span class="fl">&&</span> <span class="sub">apt install</span> <span class="fl">-y</span> <span class="val">nmap nikto curl</span></span></div>
+            <div class="desc">Atualiza a lista de pacotes e instala as 3 ferramentas da aula de uma vez. Aguarde terminar (leva ~2 min).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">1.2</div><div class="st2">Varredura básica — quais portas estão abertas?</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">nmap</span> <span class="ip">localhost</span></span></div>
+            <div class="desc"><span class="hi">nmap localhost</span> varre as 1000 portas mais comuns da sua própria máquina, onde o alvo (DVWA) está rodando na porta 8080.</div>
+          </div>
+          <div class="out c">Starting Nmap scan...</div>
+          <div class="out g">PORT     STATE SERVICE</div>
+          <div class="out g">8080/tcp open  http-proxy  ← nosso alvo!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">1.3</div><div class="st2">Detectar versões dos serviços (-sV)</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">nmap</span> <span class="fl">-sV</span> <span class="fl">-p</span> <span class="val">8080</span> <span class="ip">localhost</span></span></div>
+            <div class="desc">
+              <span class="g">-sV</span> tenta descobrir o nome e a <strong>versão exata</strong> do serviço em cada porta.<br>
+              <span class="c">-p 8080</span> limita a varredura apenas à porta 8080 — mais rápido e direto.
+            </div>
+          </div>
+          <div class="out g">PORT     STATE SERVICE VERSION</div>
+          <div class="out g">8080/tcp open  http    Apache httpd 2.4.x</div>
+          <div class="out y">← Apache encontrado! Versão revelada.</div>
+        </div>
+      </div>
+      <div class="tip"><strong>💡 POR QUE A VERSÃO IMPORTA?</strong>Com a versão exata do Apache, um atacante real buscaria no banco de dados CVE (cve.mitre.org) vulnerabilidades conhecidas para aquela versão específica.</div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">1.4</div><div class="st2">Varredura com scripts padrão (-sC) e salvar resultado</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">nmap</span> <span class="fl">-sV</span> <span class="fl">-sC</span> <span class="fl">-p</span> <span class="val">8080</span> <span class="ip">localhost</span> <span class="fl">-oN</span> <span class="val">/tmp/scan-nmap.txt</span></span></div>
+            <div class="desc">
+              <span class="g">-sC</span> roda scripts automáticos do nmap: busca título da página, métodos HTTP permitidos, cookies e mais informações úteis.<br>
+              <span class="c">-oN /tmp/scan-nmap.txt</span> salva o resultado em arquivo — você vai anexar isso no relatório!
+            </div>
+          </div>
+          <div class="out c">| http-title: Damn Vulnerable Web Application</div>
+          <div class="out c">| http-methods: GET POST HEAD OPTIONS</div>
+          <div class="out y">| http-auth: Basic realm="DVWA"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PORT REFERENCE -->
+    <hr class="dv">
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px;font-family:'Share Tech Mono',monospace;letter-spacing:.05em">📖 REFERÊNCIA — O QUE SIGNIFICAM AS PORTAS COMUNS</p>
+    <table class="wtable">
+      <thead><tr><th>PORTA</th><th>SERVIÇO</th><th>O QUE FAZ</th><th>RISCO</th></tr></thead>
+      <tbody>
+        <tr><td>21</td><td>FTP</td><td>Transferência de arquivos</td><td style="color:var(--red)">Alto — sem criptografia</td></tr>
+        <tr><td>22</td><td>SSH</td><td>Acesso remoto seguro</td><td style="color:var(--yellow)">Médio — brute force</td></tr>
+        <tr><td>80</td><td>HTTP</td><td>Site web sem criptografia</td><td style="color:var(--red)">Alto — tráfego exposto</td></tr>
+        <tr><td>443</td><td>HTTPS</td><td>Site web com criptografia</td><td style="color:var(--green)">Baixo — verifique certificado</td></tr>
+        <tr><td>3306</td><td>MySQL</td><td>Banco de dados</td><td style="color:var(--red)">Alto — se exposto remotamente</td></tr>
+        <tr><td>8080</td><td>HTTP Alt</td><td>Servidor web alternativo</td><td style="color:var(--yellow)">Médio — painéis admin</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ═══ FASE 2 — NIKTO ═══ -->
+<div class="sec">FASE 2 — VULNERABILIDADES WEB COM NIKTO</div>
+
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num">02</div>
+    <div class="blk-info">
+      <h2>Escanear o site em busca de problemas conhecidos</h2>
+      <p>O nikto testa automaticamente mais de 6700 vulnerabilidades e configurações erradas em servidores web.</p>
+      <div class="tags"><span class="tag tr">nikto</span><span class="tag to">web scan</span><span class="tag ty">CVE</span></div>
+    </div>
+    <div class="tm">⏱ 15 min</div>
+  </div>
+  <div class="blk-body">
+    <div class="obj">
+      <strong>🎯 O QUE VOCÊ VAI DESCOBRIR</strong>
+      Arquivos perigosos expostos, configurações erradas, versões desatualizadas, cookies sem proteção e cabeçalhos HTTP de segurança ausentes.
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">2.1</div><div class="st2">Escanear o alvo com nikto</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">nikto</span> <span class="fl">-h</span> <span class="val">http://localhost:8080</span> <span class="fl">-o</span> <span class="val">/tmp/scan-nikto.txt</span></span></div>
+            <div class="desc">
+              <span class="g">-h http://localhost:8080</span> aponta o nikto para o nosso alvo.<br>
+              <span class="c">-o /tmp/scan-nikto.txt</span> salva todos os achados em arquivo para o relatório.<br>
+              O scan leva entre 2 e 5 minutos. Cada linha com <span style="color:var(--red)">+</span> é um achado!
+            </div>
+          </div>
+          <div class="out r">+ Server: Apache/2.4.x — versão exposta no cabeçalho</div>
+          <div class="out r">+ /config/: Directory indexing found</div>
+          <div class="out r">+ Cookie PHPSESSID set without HttpOnly flag</div>
+          <div class="out r">+ No X-Frame-Options header found</div>
+          <div class="out r">+ No Content-Security-Policy header found</div>
+          <div class="out y">+ 6544 items checked: 23 error(s) and 8 item(s) reported</div>
+        </div>
+      </div>
+      <div class="tip"><strong>💡 LENDO OS RESULTADOS</strong>Cada linha com <strong>+</strong> é um achado. Copie os mais importantes para o relatório. Achados com "OSVDB" ou "CVE" têm número de vulnerabilidade oficial — pesquise no Google para entender o impacto.</div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">2.2</div><div class="st2">Ver o resultado salvo</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">cat</span> <span class="val">/tmp/scan-nikto.txt</span></span></div>
+            <div class="desc"><span class="hi">cat</span> exibe o conteúdo do arquivo salvo. Este é o arquivo de evidências que você vai anexar ao relatório.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ FASE 3 — CURL ═══ -->
+<div class="sec">FASE 3 — INSPEÇÃO MANUAL COM CURL</div>
+
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num">03</div>
+    <div class="blk-info">
+      <h2>Inspecionar cabeçalhos e resposta HTTP manualmente</h2>
+      <p>O curl faz requisições HTTP e mostra exatamente o que o servidor responde — útil para confirmar achados do nikto.</p>
+      <div class="tags"><span class="tag tc">curl</span><span class="tag tg">HTTP headers</span><span class="tag ty">fingerprint</span></div>
+    </div>
+    <div class="tm">⏱ 10 min</div>
+  </div>
+  <div class="blk-body">
+    <div class="obj">
+      <strong>🎯 O QUE VOCÊ VAI DESCOBRIR</strong>
+      Os cabeçalhos HTTP que o servidor envia — que revelam tecnologias, versões e configurações de segurança ausentes.
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">3.1</div><div class="st2">Ver cabeçalhos HTTP do servidor</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">curl</span> <span class="fl">-I</span> <span class="val">http://localhost:8080</span></span></div>
+            <div class="desc">
+              <span class="g">-I</span> faz uma requisição HEAD — busca apenas os cabeçalhos, sem baixar o HTML.<br>
+              Os cabeçalhos revelam: versão do servidor, linguagem usada, tipo de cookie e configurações de segurança.
+            </div>
+          </div>
+          <div class="out c">HTTP/1.1 200 OK</div>
+          <div class="out c">Server: Apache/2.4.x  ← versão exposta!</div>
+          <div class="out c">X-Powered-By: PHP/7.x ← linguagem exposta!</div>
+          <div class="out r">← SEM: Strict-Transport-Security</div>
+          <div class="out r">← SEM: X-Frame-Options</div>
+          <div class="out r">← SEM: Content-Security-Policy</div>
+        </div>
+      </div>
+      <div class="warn"><strong>⚠️ CABEÇALHOS AUSENTES = VULNERABILIDADE</strong>Todo cabeçalho de segurança ausente é um achado real. Anote no relatório como criticidade <strong>Médio</strong> e explique por que cada um deveria estar presente.</div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">3.2</div><div class="st2">Ver o HTML da página de login</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">curl</span> <span class="val">http://localhost:8080/login.php</span> <span class="fl">|</span> <span class="kw">grep</span> <span class="fl">-i</span> <span class="val">"form\|input\|action"</span></span></div>
+            <div class="desc">
+              Baixa o HTML da página de login e filtra apenas as linhas com <span class="g">form</span>, <span class="g">input</span> e <span class="g">action</span> — revela como o formulário funciona sem nem abrir o browser.
+            </div>
+          </div>
+          <div class="out c">&lt;form action="login.php" method="POST"&gt;</div>
+          <div class="out c">&lt;input name="username" type="text"&gt;</div>
+          <div class="out c">&lt;input name="password" type="password"&gt;</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">3.3</div><div class="st2">Testar login com credenciais padrão via curl</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">curl</span> <span class="fl">-X POST</span> <span class="val">http://localhost:8080/login.php</span> <span class="fl">-d</span> <span class="val">"username=admin&password=password&Login=Login"</span> <span class="fl">-L</span> <span class="fl">-v</span> <span class="val">2>&1</span> <span class="fl">|</span> <span class="kw">grep</span> <span class="val">"Location\|302\|200"</span></span></div>
+            <div class="desc">
+              <span class="g">-X POST</span> envia dados como formulário · <span class="c">-d</span> define os campos · <span class="o">-L</span> segue redirecionamentos · <span class="hi">-v</span> modo verboso.<br>
+              As credenciais padrão do DVWA são <strong>admin / password</strong>. Um redirecionamento 302 indica login bem-sucedido!
+            </div>
+          </div>
+          <div class="out g">HTTP/1.1 302 Found</div>
+          <div class="out g">Location: index.php ← login aceito com credencial padrão!</div>
+        </div>
+      </div>
+      <div class="ok"><strong>✅ ACHADO — CREDENCIAL PADRÃO ATIVA</strong>O sistema aceita <strong>admin/password</strong> — credenciais que nunca foram alteradas. Este é um achado de criticidade <strong>CRÍTICO</strong> para o relatório!</div>
+    </div>
+
+    <div class="step">
+      <div class="shdr"><div class="sn">3.4</div><div class="st2">Salvar todas as evidências</div></div>
+      <div class="term">
+        <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>KALI — root@kali</span></div>
+        <div class="tbody">
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">curl</span> <span class="fl">-I</span> <span class="val">http://localhost:8080</span> <span class="fl">&gt;</span> <span class="val">/tmp/scan-curl.txt</span></span></div>
+            <div class="desc">Salva a saída dos cabeçalhos HTTP no arquivo de evidências.</div>
+          </div>
+          <div class="cb">
+            <div class="cl"><span class="pr2">root@kali#</span><span class="cm"><span class="kw">cat</span> <span class="val">/tmp/scan-nmap.txt /tmp/scan-nikto.txt /tmp/scan-curl.txt</span> <span class="fl">&gt;</span> <span class="val">/tmp/evidencias-completas.txt</span></span></div>
+            <div class="desc">Junta todos os arquivos de saída em um único arquivo de evidências para anexar ao relatório.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ RELATÓRIO ═══ -->
+<div class="sec">RELATÓRIO — TEMPLATE DE ENTREGA</div>
+
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num r">DOC</div>
+    <div class="blk-info">
+      <h2>Relatório de Pentest — Preencher e entregar</h2>
+      <p>Preencha com base no que você encontrou durante a atividade. Seja específico nos achados.</p>
+      <div class="tags"><span class="tag tg">entrega obrigatória</span><span class="tag ty">evidências anexas</span></div>
+    </div>
+  </div>
+  <div class="blk-body">
+    <div class="report">
+      <div class="rhdr">
+        <div class="shield">🛡️</div>
+        <div>
+          <h3>RELATÓRIO DE PENTEST — UMC LAB</h3>
+          <p>Preencha todos os campos com base na atividade realizada</p>
+        </div>
+      </div>
+      <div class="rbody">
+
+        <div class="rsec">
+          <h4>1. IDENTIFICAÇÃO</h4>
+          <div class="grid2">
+            <div class="field"><label>Nome do(s) aluno(s)</label><div class="fbox ph">ex: João Silva</div></div>
+            <div class="field"><label>Data</label><div class="fbox ph">ex: 23/04/2026</div></div>
+            <div class="field"><label>Container atacante usado</label><div class="fbox ph">ex: kalilinux/kali-rolling</div></div>
+            <div class="field"><label>Alvo testado</label><div class="fbox ph">ex: vulnerables/web-dvwa — localhost:8080</div></div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>2. FERRAMENTAS UTILIZADAS</h4>
+          <div class="field">
+            <label>Liste cada ferramenta e o que ela fez</label>
+            <div class="fbox tall ph">
+              ex:<br>
+              • nmap — varredura de portas e detecção de versões de serviços<br>
+              • nikto — scanner automático de vulnerabilidades web<br>
+              • curl — inspeção manual de cabeçalhos HTTP e teste de login
+            </div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>3. PORTAS E SERVIÇOS ENCONTRADOS</h4>
+          <div class="field">
+            <label>O que o nmap encontrou? Porta | Serviço | Versão</label>
+            <div class="fbox tall ph">
+              ex:<br>
+              8080/tcp | HTTP | Apache 2.4.x — servidor web principal do alvo<br>
+              3306/tcp | MySQL | 5.x — banco de dados (se encontrado)
+            </div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>4. VULNERABILIDADES ENCONTRADAS</h4>
+          <div class="field">
+            <label>Descreva cada achado: o que é, onde está, qual o risco</label>
+            <div class="fbox tall ph">
+              ex: [CRÍTICO] Credencial padrão ativa (admin/password)<br>
+              O sistema aceita login com usuário e senha padrão sem exigir troca.<br>
+              Risco: qualquer pessoa pode acessar o sistema sem esforço.<br>
+              Correção: forçar troca de senha no primeiro acesso.<br><br>
+              ex: [MÉDIO] Cabeçalho X-Frame-Options ausente<br>
+              O servidor não envia este cabeçalho, permitindo que o site seja<br>
+              embutido em iframes de outros sites (ataque Clickjacking).<br>
+              Correção: adicionar X-Frame-Options: DENY no servidor.
+            </div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>5. CLASSIFICAÇÃO GERAL DE SEVERIDADE</h4>
+          <p style="font-size:.79rem;color:var(--muted);margin-bottom:8px">Qual a criticidade geral dos achados desta atividade?</p>
+          <div class="sev-row">
+            <div class="sev c">🔴 CRÍTICO</div>
+            <div class="sev h">🟠 ALTO</div>
+            <div class="sev m">🟡 MÉDIO</div>
+            <div class="sev l">🟢 BAIXO</div>
+            <div class="sev i">🔵 INFORMATIVO</div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>6. RECOMENDAÇÕES</h4>
+          <div class="field">
+            <label>O que deveria ser corrigido num sistema real?</label>
+            <div class="fbox tall ph">
+              1. Trocar credenciais padrão imediatamente após instalação<br>
+              2. Adicionar cabeçalhos de segurança HTTP (HSTS, CSP, X-Frame-Options)<br>
+              3. Ocultar versão do Apache e PHP nos cabeçalhos (ServerTokens Prod)<br>
+              4. Ativar HTTPS com certificado válido
+            </div>
+          </div>
+        </div>
+
+        <div class="rsec">
+          <h4>7. CONCLUSÃO PESSOAL</h4>
+          <div class="field">
+            <label>O que você aprendeu? O que te surpreendeu?</label>
+            <div class="fbox tall ph">Escreva em suas palavras o que aprendeu nesta atividade, qual ferramenta achou mais útil e como isso se aplica à segurança de sistemas reais...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <hr class="dv">
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px;font-family:'Share Tech Mono',monospace;letter-spacing:.05em">✅ CHECKLIST — ANTES DE ENTREGAR</p>
+    <ul class="cll">
+      <li><span>Nome do container atacante e do alvo identificados</span></li>
+      <li><span>Ferramentas listadas com sua finalidade</span></li>
+      <li><span>Porta 8080 e serviço Apache descritos com versão</span></li>
+      <li><span>Pelo menos 3 vulnerabilidades descritas com localização e risco</span></li>
+      <li><span>Pelo menos 2 recomendações de correção escritas</span></li>
+      <li><span>Arquivo evidencias-completas.txt anexado</span></li>
+      <li><span>Conclusão pessoal preenchida</span></li>
+    </ul>
+  </div>
+</div>
+
+
+<!-- ═══ ENCERRAR ═══ -->
+<div class="sec">ENCERRAMENTO DO LAB</div>
+<div class="blk">
+  <div class="blk-hdr">
+    <div class="num c">END</div>
+    <div class="blk-info">
+      <h2>Remover os containers ao finalizar</h2>
+      <p>Sempre encerre o lab após a aula para liberar recursos da máquina.</p>
+    </div>
+    <div class="tm">⏱ 1 min</div>
+  </div>
+  <div class="blk-body">
+    <div class="term">
+      <div class="tbar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><span>POWERSHELL — HOST</span></div>
+      <div class="tbody">
+        <div class="cb">
+          <div class="cl"><span class="pr2">PS&gt;</span><span class="cm"><span class="kw">docker</span> <span class="sub">stop</span> <span class="val">alvo-web kali</span> <span class="fl">&&</span> <span class="kw">docker</span> <span class="sub">rm</span> <span class="val">alvo-web kali</span></span></div>
+          <div class="desc">Para e remove os dois containers com um único comando. Os dados do lab são apagados.</div>
+        </div>
+        <div class="out g">alvo-web — removed ✓</div>
+        <div class="out g">kali     — removed ✓</div>
+      </div>
+    </div>
+    <div class="tip"><strong>💡 PRÓXIMA AULA</strong>Para subir o lab novamente, basta rodar os mesmos 2 comandos do início. As imagens já ficam salvas localmente — não precisa baixar de novo.</div>
+  </div>
+</div>
+
+<div class="footer">
+  UMC · Pentest Básico com Docker · Ambiente 100% isolado e seguro<br>
+  <span>nmap · nikto · curl · kalilinux/kali-rolling · vulnerables/web-dvwa</span>
+</div>
+
+</div><!-- /wrap -->
+</body>
+</html>
